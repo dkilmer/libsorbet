@@ -46,9 +46,9 @@ typedef double float64_t;
         COLTYPE(BINARY)  \
         COLTYPE(DATE)  \
         COLTYPE(DATETIME)  \
-        COLTYPE(TIME)  \
-        COLTYPE(LIST)  \
-        COLTYPE(MAP)  \
+        COLTYPE(TIME)            \
+//        COLTYPE(LIST)  \
+//        COLTYPE(MAP)  \
 
 #define GENERATE_ENUM_ENUM(ENUM) ENUM,
 #define GENERATE_ENUM_STRING(STRING) #STRING,
@@ -90,6 +90,16 @@ typedef struct DataColumn {
 	column_type_t keyType;
 } data_column_t;
 
+typedef struct ColumnStats {
+	int32_t cwidth;
+	int64_t cnulls;
+	int64_t cbads;
+	int32_t max_int;
+	int64_t max_long;
+	float32_t max_float;
+	float64_t max_double;
+} column_stats_t;
+
 // a struct that defines the file's schema (just an ordered list of columns)
 typedef struct Schema {
 	int numCols;
@@ -103,6 +113,10 @@ typedef struct SorbetDef {
 	int buf_size;
 	uint8_t *buf;
 	int buf_offset;
+	uint64_t n_rows;
+	uint64_t uc_size;
+	column_stats_t *cstats;
+	int32_t cur_col;
 } sorbet_def_t;
 
 // open a sorbet writer
@@ -112,9 +126,8 @@ sorbet_def_t *sorbet_writer_open(
 	bool compressed,
 	int metadataType,
 	int metadataSize,
-	const unsigned char * metadata
+	const uint8_t* metadata
 );
-
 void sorbet_write_int(sorbet_def_t *sdef, const int32_t *v);
 void sorbet_write_long(sorbet_def_t *sdef, const int64_t *v);
 void sorbet_write_float(sorbet_def_t *sdef, const float32_t *v);
