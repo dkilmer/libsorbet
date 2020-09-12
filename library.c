@@ -6,13 +6,42 @@
 const int64_t SORBET_SIGNATURE = -3532510898378833984;
 const uint8_t SORBET_VERSION = 3;
 
-void sorbet_flush_write_buffer(sorbet_def_t *sdef) {
+void sorbet_flush_write_buffer_uncompressed(sorbet_def_t *sdef) {
 	if (sdef->buf_offset <= 0) return;
 	size_t written = fwrite(sdef->buf, sizeof(uint8_t), sdef->buf_offset, sdef->f);
 	if (written != sdef->buf_offset) {
 		printf("ERROR: asked to write %d bytes but wrote %d\n", sdef->buf_offset, (int)written);
 	}
 	sdef->buf_offset = 0;
+}
+
+void sorbet_flush_write_buffer_compressed(sorbet_def_t *sdef) {
+	if (sdef->buf_offset <= 0) return;
+	sdef->zstrm.avail_in = sdef->buf_offset;
+	sdef->zstrm.next_in = sdef->buf;
+	do {
+		sdef->zstrm.avail_out = BUF_SIZE;
+		sdef->zstrm.next_out = sdef->zout;
+		int ret = deflate(&sdef->zstrm, sdef->zflush);
+		int have = BUF_SIZE - sdef->zstrm.avail_out;
+		size_t written = fwrite(sdef->zout, sizeof(uint8_t), have, sdef->f);
+		if (written != have) {
+			printf("ERROR: asked to write %d bytes but wrote %d\n", have, (int)written);
+		}
+	} while (sdef->zstrm.avail_out == 0);
+	if (sdef->zflush == Z_FINISH) {
+		deflateEnd(&sdef->zstrm);
+	}
+	sdef->buf_offset = 0;
+}
+
+void sorbet_flush_write_buffer(sorbet_def_t *sdef) {
+	if (sdef->buf_offset <= 0) return;
+	if (sdef->compression == 0) {
+		sorbet_flush_write_buffer_uncompressed(sdef);
+	} else {
+		sorbet_flush_write_buffer_compressed(sdef);
+	}
 }
 
 void sorbet_write_type_tag(sorbet_def_t *sdef, column_type_t type) {
@@ -303,68 +332,14 @@ int64_t col_width_from_stats(column_stats_t *stats, column_type_t col_type) {
 	return max;
 }
 
-sorbet_def_t *sorbet_writer_open(
-		const char *filename,
-		schema_t schema,
-		bool compressed,
-		int metadataType,
-		int metadataSize,
-		const uint8_t *metadata
-) {
-	FILE *f = fopen(filename, "wb");
-
-	sorbet_def_t *sdef = malloc(sizeof(sorbet_def_t));
-	sdef->f = f;
-	sdef->filename = filename;
-	sdef->schema = schema;
-	sdef->buf_size = BUF_SIZE;
-	sdef->buf = (uint8_t *)malloc(BUF_SIZE);
-	sdef->buf_offset = 0;
-	sdef->uc_size = 0;
-	sdef->n_rows = 0;
-	sdef->cstats = (column_stats_t *)malloc(schema.numCols * sizeof(column_stats_t));
-	sdef->cur_col = 0;
-
+void write_header(sorbet_def_t *sdef) {
 	sorbet_write_long_raw(sdef, SORBET_SIGNATURE);
 	sorbet_write_byte_raw(sdef, SORBET_VERSION);
-	//TODO: handle compression
-	sorbet_write_byte_raw(sdef, 0);
+	// compression type
+	sorbet_write_byte_raw(sdef, sdef->compression);
 	// number of rows
-	sorbet_write_long_raw(sdef, 0);
-	// uncompressed size including header
-	sorbet_write_long_raw(sdef, 0);
-	sorbet_write_int_raw(sdef, schema.numCols);
-	for (int i = 0; i < schema.numCols; i++) {
-		data_column_t dc = schema.cols[i];
-		int32_t name_len = strlen(dc.name);
-		sorbet_write_int_raw(sdef,name_len);
-		sorbet_write_bytes_raw(sdef, (uint8_t *)dc.name, name_len);
-		sorbet_write_byte_raw(sdef, dc.type);
-		sorbet_write_byte_raw(sdef, dc.valType);
-		sorbet_write_byte_raw(sdef, dc.keyType);
-		// maximum val width
-		sorbet_write_int_raw(sdef, 0);
-		// number of nulls
-		sorbet_write_long_raw(sdef, 0);
-		// number of bads
-		sorbet_write_long_raw(sdef, 0);
-	}
-	if (metadataSize > 0 && metadata != NULL) {
-		sorbet_write_int_raw(sdef, metadataType);
-		sorbet_write_int_raw(sdef, metadataSize);
-		sorbet_write_bytes_raw(sdef, metadata, metadataSize);
-	} else {
-		sorbet_write_int_raw(sdef, 0);
-		sorbet_write_int_raw(sdef, 0);
-	}
-	sorbet_flush_write_buffer(sdef);
-	return sdef;
-}
-
-void sorbet_writer_close(sorbet_def_t *sdef) {
-	sorbet_flush_write_buffer(sdef);
-	fseeko(sdef->f, 10, 0);
 	sorbet_write_long_raw(sdef, sdef->n_rows);
+	// uncompressed size including header
 	sorbet_write_long_raw(sdef, sdef->uc_size);
 	sorbet_write_int_raw(sdef, sdef->schema.numCols);
 	for (int i = 0; i < sdef->schema.numCols; i++) {
@@ -383,9 +358,68 @@ void sorbet_writer_close(sorbet_def_t *sdef) {
 		// number of bads
 		sorbet_write_long_raw(sdef, st.cbads);
 	}
+}
+
+void write_metadata(sorbet_def_t *sdef, int metadataType, int metadataSize, const uint8_t *metadata) {
+	if (metadataSize > 0 && metadata != NULL) {
+		sorbet_write_int_raw(sdef, metadataType);
+		sorbet_write_int_raw(sdef, metadataSize);
+		sorbet_write_bytes_raw(sdef, metadata, metadataSize);
+	} else {
+		sorbet_write_int_raw(sdef, 0);
+		sorbet_write_int_raw(sdef, 0);
+	}
+}
+
+sorbet_def_t *sorbet_writer_open(
+		const char *filename,
+		schema_t schema,
+		bool compressed,
+		int metadataType,
+		int metadataSize,
+		const uint8_t *metadata
+) {
+	FILE *f = fopen(filename, "wb");
+	sorbet_def_t *sdef = malloc(sizeof(sorbet_def_t));
+	sdef->f = f;
+	sdef->filename = filename;
+	sdef->schema = schema;
+	sdef->buf_size = BUF_SIZE;
+	//sdef->buf = (uint8_t *)malloc(BUF_SIZE);
+	sdef->buf_offset = 0;
+	sdef->uc_size = 0;
+	sdef->n_rows = 0;
+	sdef->cstats = (column_stats_t *)malloc(schema.numCols * sizeof(column_stats_t));
+	sdef->cur_col = 0;
+	sdef->zflush = Z_NO_FLUSH;
+	if (compressed) {
+		sdef->compression = 1;
+		sdef->zstrm.zalloc = Z_NULL;
+		sdef->zstrm.zfree = Z_NULL;
+		sdef->zstrm.opaque = Z_NULL;
+		int ret = deflateInit2(&sdef->zstrm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, Z_WINDOW_BITS | GZIP_ENCODING, 8, Z_DEFAULT_STRATEGY);
+		if (ret != Z_OK) {
+			printf("ERROR: deflateInit returned %d\n", ret);
+			sdef->compression = 0;
+		}
+	} else {
+		sdef -> compression = 0;
+	}
+	write_header(sdef);
+	write_metadata(sdef, metadataType, metadataSize, metadata);
+	// header and metadata are not compressed
+	sorbet_flush_write_buffer_uncompressed(sdef);
+	return sdef;
+}
+
+void sorbet_writer_close(sorbet_def_t *sdef) {
+	sdef->zflush = Z_FINISH;
 	sorbet_flush_write_buffer(sdef);
+	fseeko(sdef->f, 0, 0);
+	write_header(sdef);
+	// header and metadata are not compressed
+	sorbet_flush_write_buffer_uncompressed(sdef);
 	fclose(sdef->f);
-	free(sdef->buf);
 	free(sdef->cstats);
 	free(sdef);
 }

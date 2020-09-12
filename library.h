@@ -7,8 +7,12 @@
 #include <float.h>
 #include <endian.h>
 #include <time.h>
+#include <zlib.h>
 
-#define BUF_SIZE 4096
+#define BUF_SIZE 16384
+#define Z_WINDOW_BITS 15
+#define GZIP_ENCODING 16
+
 
 // Make sure we have valid sized to typedef to float32_t and float64_t. If these
 // aren't 32 bits and 64 bits respectively, you'll need to change the typedefs
@@ -111,12 +115,16 @@ typedef struct SorbetDef {
 	const char *filename;
 	schema_t schema;
 	int buf_size;
-	uint8_t *buf;
+	uint8_t buf[BUF_SIZE];
 	int buf_offset;
 	uint64_t n_rows;
 	uint64_t uc_size;
 	column_stats_t *cstats;
 	int32_t cur_col;
+	uint8_t compression;
+	z_stream zstrm;
+	uint8_t zout[BUF_SIZE];
+	int zflush;
 } sorbet_def_t;
 
 // open a sorbet writer

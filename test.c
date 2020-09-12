@@ -20,7 +20,7 @@ int main(int argc, const char **argv) {
 			{2, "Shemp"},
 			{3, "Larry"}
 	};
-	sorbet_def_t *sdef = sorbet_writer_open("file.sorbet", schema, false, 0, 0, NULL);
+	sorbet_def_t *sdef = sorbet_writer_open("/home/dmk/data/file.sorbet", schema, true, 0, 0, NULL);
 	for (int i=0; i<3; i++) {
 		sorbet_write_int(sdef, &recs[i].id);
 		sorbet_write_string(sdef, (const uint8_t *)recs[i].name, strlen(recs[i].name));
