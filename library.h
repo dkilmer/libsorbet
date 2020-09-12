@@ -150,5 +150,6 @@ void sorbet_write_datetime_time_t(sorbet_def_t *sdef, const time_t *dt);
 void sorbet_write_time(sorbet_def_t *sdef, const sorbet_time_t *v);
 void sorbet_write_time_time_t(sorbet_def_t *sdef, const time_t *v);
 void sorbet_writer_close(sorbet_def_t *sdef);
+int sorbet_version();
 
 #endif //LIBSORBET_LIBRARY_H

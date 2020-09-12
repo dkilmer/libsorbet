@@ -6,6 +6,10 @@
 const int64_t SORBET_SIGNATURE = -3532510898378833984;
 const uint8_t SORBET_VERSION = 3;
 
+int sorbet_version() {
+	return SORBET_VERSION;
+}
+
 void sorbet_flush_write_buffer_uncompressed(sorbet_def_t *sdef) {
 	if (sdef->buf_offset <= 0) return;
 	size_t written = fwrite(sdef->buf, sizeof(uint8_t), sdef->buf_offset, sdef->f);
