@@ -57,9 +57,9 @@ typedef double float64_t;
 #define GENERATE_ENUM_STRING(STRING) #STRING,
 #define GENERATE_ENUM_NULL_TAG(ENUM) (ENUM + 90),
 
-typedef enum ColumnType {
+typedef enum s_column_type {
 	FOREACH_COLTYPE(GENERATE_ENUM_ENUM)
-} column_type_t;
+} column_type;
 
 static const char *column_type_label[] = {
 	FOREACH_COLTYPE(GENERATE_ENUM_STRING)
@@ -87,10 +87,10 @@ typedef struct s_sorbet_time {
 
 // a struct that defines a single column in the file
 typedef struct s_data_column {
-	const char *name;
-	column_type_t type;
-	column_type_t valType;
-	column_type_t keyType;
+	char *name;
+	column_type type;
+	column_type valType;
+	column_type keyType;
 } data_column;
 
 typedef struct s_column_stats {
@@ -115,7 +115,7 @@ typedef struct s_sorbet_def {
 	uint8_t compression;
 	int metadataType;
 	int metadataSize;
-	const uint8_t* metadata;
+	uint8_t* metadata;
 	FILE *f;
 	uint8_t buf[BUF_SIZE];
 	int buf_size;

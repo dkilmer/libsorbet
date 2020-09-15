@@ -48,7 +48,7 @@ void sorbet_flush_write_buffer(sorbet_def *sdef) {
 	}
 }
 
-void sorbet_write_type_tag(sorbet_def *sdef, column_type_t type) {
+void sorbet_write_type_tag(sorbet_def *sdef, column_type type) {
 	if ((sdef->buf_offset + 1) > BUF_SIZE) {
 		sorbet_flush_write_buffer(sdef);
 	}
@@ -58,7 +58,7 @@ void sorbet_write_type_tag(sorbet_def *sdef, column_type_t type) {
 	sdef->uc_size += 1;
 }
 
-void sorbet_write_null_type_tag(sorbet_def *sdef, column_type_t type) {
+void sorbet_write_null_type_tag(sorbet_def *sdef, column_type type) {
 	if ((sdef->buf_offset + 1) > BUF_SIZE) {
 		sorbet_flush_write_buffer(sdef);
 	}
@@ -303,7 +303,7 @@ void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v) {
 	inc_col(sdef);
 }
 
-int64_t col_width_from_stats(column_stats *stats, column_type_t col_type) {
+int64_t col_width_from_stats(column_stats *stats, column_type col_type) {
 	int64_t max = 0L;
 	char strbuf[256];
 	switch (col_type) {
@@ -477,7 +477,11 @@ void sorbet_fill_read_buffer_compressed(sorbet_def *sdef) {
 }
 
 void sorbet_fill_read_buffer(sorbet_def *sdef) {
-	sorbet_fill_read_buffer_uncompressed(sdef);
+	if (sdef->compression == 1) {
+		sorbet_fill_read_buffer_compressed(sdef);
+	} else {
+		sorbet_fill_read_buffer_uncompressed(sdef);
+	}
 }
 
 void sorbet_read_bytes_raw(sorbet_def *sdef, uint8_t *v, int32_t len) {
@@ -549,11 +553,82 @@ float64_t sorbet_read_double_raw(sorbet_def *sdef) {
 	return uv.v;
 }
 
-void sorbet_reader_open(sorbet_def *sdef) {
-	sdef->f = fopen(sdef->filename, "rb");
+void sorbet_read_int(sorbet_def *sdef, int32_t *v) {
+	uint64_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[INTEGER]) {
+		*v = sorbet_read_int_raw(sdef);
+	} else if (typ == column_type_null_tag[INTEGER]) {
+		v = NULL;
+	}
+}
 
+bool read_header(sorbet_def *sdef) {
+	// turn off compression while reading the header
+	sdef->compression = 0;
+	uint64_t sig = sorbet_read_long_raw(sdef);
+	if (sig != SORBET_SIGNATURE) {
+		printf("%s is not a valid sorbet file\n", sdef->filename);
+		return false;
+	}
+	uint8_t ver = sorbet_read_byte_raw(sdef);
+	if (ver > SORBET_VERSION) {
+		printf("file version is %d - this reader handles up to %d\n", ver, SORBET_VERSION);
+		return false;
+	}
+	uint8_t compression = sorbet_read_byte_raw(sdef);
+	sdef->n_rows = sorbet_read_long_raw(sdef);
+	// TODO: do something about negative rows
+	sdef->uc_size = sorbet_read_long_raw(sdef);
+	// TODO: do something about 0 or negative size
+	sdef->schema.numCols = sorbet_read_int_raw(sdef);
+	// TODO: do something about 0 or negative cols
+	sdef->schema.cols = (data_column *)malloc(sdef->schema.numCols * sizeof(data_column));
+	sdef->cstats = (column_stats *)malloc(sdef->schema.numCols * sizeof(column_stats));
+	for (int i=0; i<sdef->schema.numCols; i++) {
+		int name_len = sorbet_read_int_raw(sdef);
+		char *namebuf = (char *)malloc(name_len * sizeof(uint8_t));
+		sorbet_read_bytes_raw(sdef, (uint8_t *)namebuf, name_len);
+		sdef->schema.cols[i].name = namebuf;
+		sdef->schema.cols[i].type = sorbet_read_byte_raw(sdef);
+		sdef->schema.cols[i].valType = sorbet_read_byte_raw(sdef);
+		sdef->schema.cols[i].keyType = sorbet_read_byte_raw(sdef);
+		sdef->cstats[i].cwidth = sorbet_read_int_raw(sdef);
+		sdef->cstats[i].cnulls = sorbet_read_long_raw(sdef);
+		if (ver > 2) {
+			sdef->cstats[i].cbads = sorbet_read_long_raw(sdef);
+		} else {
+			sdef->cstats[i].cbads = 0;
+		}
+	}
+	sdef->metadataType = sorbet_read_int_raw(sdef);
+	sdef->metadataSize = sorbet_read_int_raw(sdef);
+	if (sdef->metadataSize > 0) {
+		sdef->metadata = (uint8_t *)malloc(sdef->metadataSize * sizeof(uint8_t));
+		sorbet_read_bytes_raw(sdef, sdef->metadata, sdef->metadataSize);
+	} else {
+		sdef->metadata = NULL;
+	}
+	// turn compression on if needed
+	sdef->compression = compression;
+	return true;
+}
+
+void sorbet_reader_open(sorbet_def *sdef) {
+	sdef->buf_size = BUF_SIZE;
+	sdef->f = fopen(sdef->filename, "rb");
+	sdef->buf_offset = BUF_SIZE;
+	sorbet_fill_read_buffer(sdef);
+	read_header(sdef);
 }
 
 void sorbet_reader_close(sorbet_def *sdef) {
-
+	fclose(sdef->f);
+	for (int i=0; i<sdef->schema.numCols; i++) {
+		free(sdef->schema.cols[i].name);
+	}
+	free(sdef->schema.cols);
+	free(sdef->cstats);
+	if (sdef->metadata != NULL) {
+		free(sdef->metadata);
+	}
 }
