@@ -13,7 +13,6 @@
 #define Z_WINDOW_BITS 15
 #define GZIP_ENCODING 16
 
-
 // Make sure we have valid sized to typedef to float32_t and float64_t. If these
 // aren't 32 bits and 64 bits respectively, you'll need to change the typedefs
 // to use types that are (you'll also have to change the definitions of
@@ -74,27 +73,27 @@ static uint8_t column_type_null_tag[] = {
 	FOREACH_COLTYPE(GENERATE_ENUM_NULL_TAG)
 };
 
-typedef struct SorbetDate {
+typedef struct s_sorbet_date {
 	int32_t y;
 	int32_t m;
 	int32_t d;
-} sorbet_date_t;
+} sorbet_date;
 
-typedef struct SorbetTime {
+typedef struct s_sorbet_time {
 	int32_t h;
 	int32_t m;
 	int32_t s;
-} sorbet_time_t;
+} sorbet_time;
 
 // a struct that defines a single column in the file
-typedef struct DataColumn {
+typedef struct s_data_column {
 	const char *name;
 	column_type_t type;
 	column_type_t valType;
 	column_type_t keyType;
-} data_column_t;
+} data_column;
 
-typedef struct ColumnStats {
+typedef struct s_column_stats {
 	int32_t cwidth;
 	int64_t cnulls;
 	int64_t cbads;
@@ -102,54 +101,52 @@ typedef struct ColumnStats {
 	int64_t max_long;
 	float32_t max_float;
 	float64_t max_double;
-} column_stats_t;
+} column_stats;
 
 // a struct that defines the file's schema (just an ordered list of columns)
-typedef struct Schema {
+typedef struct s_sorbet_schema {
 	int numCols;
-	data_column_t *cols;
-} schema_t;
+	data_column *cols;
+} sorbet_schema;
 
-typedef struct SorbetDef {
-	FILE *f;
+typedef struct s_sorbet_def {
 	const char *filename;
-	schema_t schema;
-	int buf_size;
+	sorbet_schema schema;
+	uint8_t compression;
+	int metadataType;
+	int metadataSize;
+	const uint8_t* metadata;
+	FILE *f;
 	uint8_t buf[BUF_SIZE];
+	int buf_size;
 	int buf_offset;
 	uint64_t n_rows;
 	uint64_t uc_size;
-	column_stats_t *cstats;
+	column_stats *cstats;
 	int32_t cur_col;
-	uint8_t compression;
 	z_stream zstrm;
-	uint8_t zout[BUF_SIZE];
+	uint8_t zbuf[BUF_SIZE];
 	int zflush;
-} sorbet_def_t;
+} sorbet_def;
 
-// open a sorbet writer
-sorbet_def_t *sorbet_writer_open(
-	const char *filename,
-	schema_t schema,
-	bool compressed,
-	int metadataType,
-	int metadataSize,
-	const uint8_t* metadata
-);
-void sorbet_write_int(sorbet_def_t *sdef, const int32_t *v);
-void sorbet_write_long(sorbet_def_t *sdef, const int64_t *v);
-void sorbet_write_float(sorbet_def_t *sdef, const float32_t *v);
-void sorbet_write_double(sorbet_def_t *sdef, const float64_t *v);
-void sorbet_write_boolean(sorbet_def_t *sdef, const bool *v);
-void sorbet_write_string(sorbet_def_t *sdef, const uint8_t *v, int32_t  len);
-void sorbet_write_binary(sorbet_def_t *sdef, const uint8_t *v, int32_t  len);
-void sorbet_write_date(sorbet_def_t *sdef, const sorbet_date_t *v);
-void sorbet_write_date_time_t(sorbet_def_t *sdef, const time_t *v);
-void sorbet_write_datetime(sorbet_def_t *sdef, const int64_t *dt);
-void sorbet_write_datetime_time_t(sorbet_def_t *sdef, const time_t *dt);
-void sorbet_write_time(sorbet_def_t *sdef, const sorbet_time_t *v);
-void sorbet_write_time_time_t(sorbet_def_t *sdef, const time_t *v);
-void sorbet_writer_close(sorbet_def_t *sdef);
 int sorbet_version();
+// open a sorbet writer
+void sorbet_writer_open(sorbet_def *sdef);
+void sorbet_writer_close(sorbet_def *sdef);
+void sorbet_write_int(sorbet_def *sdef, const int32_t *v);
+void sorbet_write_long(sorbet_def *sdef, const int64_t *v);
+void sorbet_write_float(sorbet_def *sdef, const float32_t *v);
+void sorbet_write_double(sorbet_def *sdef, const float64_t *v);
+void sorbet_write_boolean(sorbet_def *sdef, const bool *v);
+void sorbet_write_string(sorbet_def *sdef, const uint8_t *v, int32_t  len);
+void sorbet_write_binary(sorbet_def *sdef, const uint8_t *v, int32_t  len);
+void sorbet_write_date(sorbet_def *sdef, const sorbet_date *v);
+void sorbet_write_date_time_t(sorbet_def *sdef, const time_t *v);
+void sorbet_write_datetime(sorbet_def *sdef, const int64_t *dt);
+void sorbet_write_datetime_time_t(sorbet_def *sdef, const time_t *dt);
+void sorbet_write_time(sorbet_def *sdef, const sorbet_time *v);
+void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v);
 
+void sorbet_reader_open(sorbet_def *sdef);
+void sorbet_reader_close(sorbet_def *sdef);
 #endif //LIBSORBET_LIBRARY_H

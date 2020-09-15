@@ -10,21 +10,25 @@ typedef struct TestRec {
 } test_rec_t;
 
 int main(int argc, const char **argv) {
-	data_column_t cols[] = {
+	sorbet_def sdef;
+	sdef.filename = "/home/dmk/data/file.sorbet";
+	data_column cols[] = {
 			{"id",   INTEGER, NULL_COL_TYPE, NULL_COL_TYPE},
 			{"name", STRING,  NULL_COL_TYPE, NULL_COL_TYPE},
 	};
-	schema_t schema = {sizeof(cols) / sizeof(data_column_t), cols};
+	sorbet_schema schema = {sizeof(cols) / sizeof(data_column), cols};
+	sdef.schema = schema;
 	test_rec_t recs[] = {
 			{ 1, "Moe"},
 			{2, "Shemp"},
 			{3, "Larry"}
 	};
-	sorbet_def_t *sdef = sorbet_writer_open("/home/dmk/data/file.sorbet", schema, true, 0, 0, NULL);
+	sdef.compression = 1;
+	sorbet_writer_open(&sdef);
 	for (int i=0; i<3; i++) {
-		sorbet_write_int(sdef, &recs[i].id);
-		sorbet_write_string(sdef, (const uint8_t *)recs[i].name, strlen(recs[i].name));
+		sorbet_write_int(&sdef, &recs[i].id);
+		sorbet_write_string(&sdef, (const uint8_t *)recs[i].name, strlen(recs[i].name));
 	}
-	sorbet_writer_close(sdef);
+	sorbet_writer_close(&sdef);
 	return 0;
 }
