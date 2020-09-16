@@ -65,6 +65,7 @@ static const char *column_type_label[] = {
 	FOREACH_COLTYPE(GENERATE_ENUM_STRING)
 };
 
+// just the enum as a byte
 static uint8_t column_type_tag[] = {
 	FOREACH_COLTYPE(GENERATE_ENUM_ENUM)
 };
@@ -127,9 +128,11 @@ typedef struct s_sorbet_def {
 	z_stream zstrm;
 	uint8_t zbuf[BUF_SIZE];
 	int zflush;
+	long read_cnt;
 } sorbet_def;
 
 int sorbet_version();
+
 // open a sorbet writer
 void sorbet_writer_open(sorbet_def *sdef);
 void sorbet_writer_close(sorbet_def *sdef);
@@ -148,5 +151,15 @@ void sorbet_write_time(sorbet_def *sdef, const sorbet_time *v);
 void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v);
 
 void sorbet_reader_open(sorbet_def *sdef);
+bool sorbet_read_int(sorbet_def *sdef, int32_t *v);
+bool sorbet_read_long(sorbet_def *sdef, int64_t *v);
+bool sorbet_read_float(sorbet_def *sdef, float32_t *v);
+bool sorbet_read_double(sorbet_def *sdef, float64_t *v);
+bool sorbet_read_boolean(sorbet_def *sdef, bool *v);
+bool sorbet_read_string(sorbet_def *sdef, char *v, int32_t *len);
+bool sorbet_read_binary(sorbet_def *sdef, uint8_t *v, int32_t *len);
+bool sorbet_read_date(sorbet_def *sdef, sorbet_date *v);
+bool sorbet_read_datetime(sorbet_def *sdef, int64_t *v);
+bool sorbet_read_time(sorbet_def *sdef, sorbet_time *v);
 void sorbet_reader_close(sorbet_def *sdef);
 #endif //LIBSORBET_LIBRARY_H

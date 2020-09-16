@@ -150,7 +150,7 @@ void sorbet_write_double_raw(sorbet_def *sdef, float64_t v) {
 	sorbet_write_bytes_raw(sdef, uv.bytes, 8);
 }
 
-void inc_col(sorbet_def *sdef) {
+void writer_inc_col(sorbet_def *sdef) {
 	sdef->cur_col++;
 	if (sdef->cur_col >= sdef->schema.numCols) {
 		sdef->cur_col = 0;
@@ -166,7 +166,7 @@ void sorbet_write_int(sorbet_def *sdef, const int32_t *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[INTEGER]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_long(sorbet_def *sdef, const int64_t *v) {
@@ -177,7 +177,7 @@ void sorbet_write_long(sorbet_def *sdef, const int64_t *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[LONG]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_float(sorbet_def *sdef, const float32_t *v) {
@@ -188,7 +188,7 @@ void sorbet_write_float(sorbet_def *sdef, const float32_t *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[FLOAT]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_double(sorbet_def *sdef, const float64_t *v) {
@@ -199,18 +199,18 @@ void sorbet_write_double(sorbet_def *sdef, const float64_t *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[DOUBLE]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_boolean(sorbet_def *sdef, const bool *v) {
 	if (v != NULL) {
 		sorbet_write_type_tag(sdef, column_type_tag[BOOLEAN]);
-		int32_t bv = (*v) ? 1 : 0;
-		sorbet_write_int_raw(sdef, bv);
+		uint8_t bv = (*v) ? 1 : 0;
+		sorbet_write_byte_raw(sdef, bv);
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[BOOLEAN]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_string(sorbet_def *sdef, const uint8_t *v, int32_t len) {
@@ -222,7 +222,7 @@ void sorbet_write_string(sorbet_def *sdef, const uint8_t *v, int32_t len) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[STRING]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_binary(sorbet_def *sdef, const uint8_t *v, int32_t len) {
@@ -234,7 +234,7 @@ void sorbet_write_binary(sorbet_def *sdef, const uint8_t *v, int32_t len) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[BINARY]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_date(sorbet_def *sdef, const sorbet_date *v) {
@@ -245,7 +245,7 @@ void sorbet_write_date(sorbet_def *sdef, const sorbet_date *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[DATE]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_date_time_t(sorbet_def *sdef, const time_t *v) {
@@ -257,7 +257,7 @@ void sorbet_write_date_time_t(sorbet_def *sdef, const time_t *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[DATE]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_datetime(sorbet_def *sdef, const int64_t *dt) {
@@ -267,7 +267,7 @@ void sorbet_write_datetime(sorbet_def *sdef, const int64_t *dt) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[DATETIME]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_datetime_time_t(sorbet_def *sdef, const time_t *dt) {
@@ -277,7 +277,7 @@ void sorbet_write_datetime_time_t(sorbet_def *sdef, const time_t *dt) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[DATETIME]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_time(sorbet_def *sdef, const sorbet_time *v) {
@@ -288,7 +288,7 @@ void sorbet_write_time(sorbet_def *sdef, const sorbet_time *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[TIME]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v) {
@@ -300,7 +300,7 @@ void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v) {
 	} else {
 		sorbet_write_null_type_tag(sdef, column_type_null_tag[TIME]);
 	}
-	inc_col(sdef);
+	writer_inc_col(sdef);
 }
 
 int64_t col_width_from_stats(column_stats *stats, column_type col_type) {
@@ -456,6 +456,7 @@ void sorbet_fill_read_buffer_compressed(sorbet_def *sdef) {
 		bytes_needed = BUF_SIZE - left;
 	}
 	sdef->buf_offset = 0;
+	sdef->zstrm.next_in = sdef->zbuf;
 	int bytes_left_to_read = bytes_needed;
 	do {
 		// refill the input if we need to
@@ -473,6 +474,11 @@ void sorbet_fill_read_buffer_compressed(sorbet_def *sdef) {
 		int have = bytes_left_to_read - sdef->zstrm.avail_out;
 		dst += have;
 		bytes_left_to_read -= have;
+		if (ret == Z_STREAM_END) {
+			// we're at the end of the stream. truncate the buffer and go home
+			sdef->buf_size = (bytes_needed - bytes_left_to_read);
+			bytes_left_to_read = 0;
+		}
 	} while (bytes_left_to_read > 0);
 }
 
@@ -486,7 +492,7 @@ void sorbet_fill_read_buffer(sorbet_def *sdef) {
 
 void sorbet_read_bytes_raw(sorbet_def *sdef, uint8_t *v, int32_t len) {
 	// TODO: test whether the length requested goes past the end of the file
-	if ((sdef->buf_offset + len) < sdef->buf_size) {
+	if ((sdef->buf_offset + len) <= sdef->buf_size) {
 		// desired number of bytes already in the buffer. just read it.
 		uint8_t *src = sdef->buf + sdef->buf_offset;
 		memcpy(v, src, len);
@@ -509,6 +515,7 @@ void sorbet_read_bytes_raw(sorbet_def *sdef, uint8_t *v, int32_t len) {
 			bytes_left -= bytes_to_read;
 		}
 	}
+	sdef->read_cnt += len;
 }
 
 uint8_t sorbet_read_byte_raw(sorbet_def *sdef) {
@@ -553,18 +560,147 @@ float64_t sorbet_read_double_raw(sorbet_def *sdef) {
 	return uv.v;
 }
 
-void sorbet_read_int(sorbet_def *sdef, int32_t *v) {
-	uint64_t typ = sorbet_read_byte_raw(sdef);
+void reader_inc_col(sorbet_def *sdef) {
+	sdef->cur_col = (sdef->cur_col + 1) % sdef->schema.numCols;
+}
+
+bool sorbet_read_int(sorbet_def *sdef, int32_t *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
 	if (typ == column_type_tag[INTEGER]) {
 		*v = sorbet_read_int_raw(sdef);
 	} else if (typ == column_type_null_tag[INTEGER]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_long(sorbet_def *sdef, int64_t *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[LONG]) {
+		*v = sorbet_read_long_raw(sdef);
+	} else if (typ == column_type_null_tag[LONG]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_float(sorbet_def *sdef, float32_t *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[FLOAT]) {
+		*v = sorbet_read_float_raw(sdef);
+	} else if (typ == column_type_null_tag[FLOAT]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_double(sorbet_def *sdef, float64_t *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[DOUBLE]) {
+		*v = sorbet_read_double_raw(sdef);
+	} else if (typ == column_type_null_tag[DOUBLE]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_boolean(sorbet_def *sdef, bool *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[BOOLEAN]) {
+		uint8_t bv = sorbet_read_byte_raw(sdef);
+		*v = (bv == 0) ? false : true;
+	} else if (typ == column_type_null_tag[BOOLEAN]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_string(sorbet_def *sdef, char *v, int32_t *len) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[STRING]) {
+		int32_t alen = sorbet_read_int_raw(sdef);
+		sorbet_read_bytes_raw(sdef, (uint8_t *)v, alen);
+		v[alen] = 0;
+		*len = alen;
+	} else if (typ == column_type_null_tag[STRING]) {
+		ret = false;
+		*len = 0;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_binary(sorbet_def *sdef, uint8_t *v, int32_t *len) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[BINARY]) {
+		int32_t alen = sorbet_read_int_raw(sdef);
+		sorbet_read_bytes_raw(sdef, v, alen);
+		*len = alen;
+	} else if (typ == column_type_null_tag[BINARY]) {
+		ret = false;
+		*len = 0;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_date(sorbet_def *sdef, sorbet_date *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[DATE]) {
+		int32_t dt = sorbet_read_int_raw(sdef);
+		v->y = dt / 10000;
+		v->m = (dt - (10000 * v->y)) / 100;
+		v->d = (dt - ((10000 * v->y)+(100 * v->m)));
+	} else if (typ == column_type_null_tag[DATE]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_datetime(sorbet_def *sdef, int64_t *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[DATETIME]) {
+		*v = sorbet_read_long_raw(sdef);
+	} else if (typ == column_type_null_tag[DATETIME]) {
+		ret = false;
+	}
+	reader_inc_col(sdef);
+	return ret;
+}
+
+bool sorbet_read_time(sorbet_def *sdef, sorbet_time *v) {
+	bool ret = true;
+	uint8_t typ = sorbet_read_byte_raw(sdef);
+	if (typ == column_type_tag[TIME]) {
+		int32_t dt = sorbet_read_int_raw(sdef);
+		v->h = dt / 10000;
+		v->m = (dt - (10000 * v->h)) / 100;
+		v->s = (dt - ((10000 * v->h)+(100 * v->m)));
+	} else if (typ == column_type_null_tag[TIME]) {
 		v = NULL;
 	}
+	reader_inc_col(sdef);
 }
 
 bool read_header(sorbet_def *sdef) {
 	// turn off compression while reading the header
 	sdef->compression = 0;
+	sdef->read_cnt = 0;
 	uint64_t sig = sorbet_read_long_raw(sdef);
 	if (sig != SORBET_SIGNATURE) {
 		printf("%s is not a valid sorbet file\n", sdef->filename);
@@ -610,6 +746,23 @@ bool read_header(sorbet_def *sdef) {
 	}
 	// turn compression on if needed
 	sdef->compression = compression;
+	if (compression == 1) {
+		sdef->zstrm.zalloc = Z_NULL;
+		sdef->zstrm.zfree = Z_NULL;
+		sdef->zstrm.opaque = Z_NULL;
+		sdef->zstrm.avail_in = 0;
+		sdef->zstrm.next_in = Z_NULL;
+		//int ret = inflateInit2(&sdef->zstrm, Z_WINDOW_BITS | GZIP_ENCODING);
+		int ret = inflateInit2(&sdef->zstrm, GZIP_ENCODING);
+		//int ret = inflateInit(&sdef->zstrm);
+		if (ret != Z_OK) {
+			printf("ERROR: inflateInit returned %d\n", ret);
+		}
+	}
+	printf("seeking to %ld\n", sdef->read_cnt);
+	fseek(sdef->f, sdef->read_cnt, 0);
+	sdef->buf_offset = BUF_SIZE;
+	sorbet_fill_read_buffer(sdef);
 	return true;
 }
 
@@ -619,6 +772,7 @@ void sorbet_reader_open(sorbet_def *sdef) {
 	sdef->buf_offset = BUF_SIZE;
 	sorbet_fill_read_buffer(sdef);
 	read_header(sdef);
+	sdef->cur_col = 0;
 }
 
 void sorbet_reader_close(sorbet_def *sdef) {
