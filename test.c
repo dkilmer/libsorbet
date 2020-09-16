@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include "library.h"
+#include "sorbet.h"
 
 typedef struct TestRec {
 	int id;
