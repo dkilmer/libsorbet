@@ -11,7 +11,7 @@ typedef struct TestRec {
 
 int main(int argc, const char **argv) {
 	sorbet_def sdef;
-	sdef.filename = "/home/dmk/data/file.sorbet";
+	sdef.filename = "/home/dmk/data/xx/test-cats/peoples.sorbet";
 /*
 	data_column cols[] = {
 			{"id",   INTEGER, NULL_COL_TYPE, NULL_COL_TYPE},
@@ -56,6 +56,22 @@ int main(int argc, const char **argv) {
 	sorbet_time timeval;
 
 	for (uint64_t i=0; i<sdef.n_rows; i++) {
+		col_val *row = sorbet_read_row(&sdef);
+		for (int c=0; c<sdef.schema.numCols; c++) {
+			switch (sdef.schema.cols[c].type) {
+				case INTEGER: {
+					printf(" %d", row[c].intval);
+					break;
+				}
+				case STRING: {
+					printf(" %s", row[c].strval);
+					break;
+				}
+				default: {
+				}
+			}
+		}
+/*
 		for (int c=0; c<sdef.schema.numCols; c++) {
 			switch (sdef.schema.cols[c].type) {
 				case INTEGER: {
@@ -79,8 +95,12 @@ int main(int argc, const char **argv) {
 				}
 			}
 		}
+*/
 		printf("\n");
 	}
 	sorbet_reader_close(&sdef);
+/*
+	printf("sizeof col_val is %d\n", (int)sizeof(col_val));
+*/
 	return 0;
 }

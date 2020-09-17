@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <math.h>
+#include <assert.h>
 
 const int64_t SORBET_SIGNATURE = -3532510898378833984;
 const uint8_t SORBET_VERSION = 3;
@@ -442,7 +443,11 @@ void sorbet_fill_read_buffer_uncompressed(sorbet_def *sdef) {
 }
 
 void sorbet_fill_read_buffer_compressed(sorbet_def *sdef) {
-	if (sdef->buf_offset == 0) return; // we haven't used any of the buffer yet
+	if (sdef->buf_offset == 0) {
+		printf("\n-=-= returning from sorbet_fill_read_buffer_compressed because buf_offset is 0\n");
+		return; // we haven't used any of the buffer yet
+	}
+	printf("\n-=-=sorbet_fill_read_buffer_compressed\n");
 	uint8_t *dst = sdef->buf;
 	int bytes_needed = BUF_SIZE;
 	if (sdef->buf_offset < BUF_SIZE) {
@@ -456,12 +461,12 @@ void sorbet_fill_read_buffer_compressed(sorbet_def *sdef) {
 		bytes_needed = BUF_SIZE - left;
 	}
 	sdef->buf_offset = 0;
-	sdef->zstrm.next_in = sdef->zbuf;
 	int bytes_left_to_read = bytes_needed;
 	do {
 		// refill the input if we need to
 		if (sdef->zstrm.avail_in == 0) {
 			// read from the file
+			sdef->zstrm.next_in = sdef->zbuf;
 			sdef->zstrm.avail_in = fread(sdef->zbuf, sizeof(uint8_t), BUF_SIZE, sdef->f);
 			if (sdef->zstrm.avail_in == 0) {
 				printf("we hit the end of the file\n");
@@ -471,6 +476,10 @@ void sorbet_fill_read_buffer_compressed(sorbet_def *sdef) {
 		sdef->zstrm.avail_out = bytes_left_to_read;
 		sdef->zstrm.next_out = dst;
 		int ret = inflate(&sdef->zstrm, Z_NO_FLUSH);
+		if (ret < 0) {
+			printf("\ninflate returned %d\n", ret);
+			assert(ret >= 0);
+		}
 		int have = bytes_left_to_read - sdef->zstrm.avail_out;
 		dst += have;
 		bytes_left_to_read -= have;
@@ -561,7 +570,12 @@ float64_t sorbet_read_double_raw(sorbet_def *sdef) {
 }
 
 void reader_inc_col(sorbet_def *sdef) {
-	sdef->cur_col = (sdef->cur_col + 1) % sdef->schema.numCols;
+	sdef->cur_col++;
+	if (sdef->cur_col >= sdef->schema.numCols) {
+		sdef->cur_col = 0;
+		sdef->row_cnt++;
+	}
+	//sdef->cur_col = (sdef->cur_col + 1) % sdef->schema.numCols;
 }
 
 bool sorbet_read_int(sorbet_def *sdef, int32_t *v) {
@@ -697,6 +711,56 @@ bool sorbet_read_time(sorbet_def *sdef, sorbet_time *v) {
 	reader_inc_col(sdef);
 }
 
+col_val *sorbet_read_row(sorbet_def *sdef) {
+	for (int i=0; i<sdef->schema.numCols; i++) {
+		switch (sdef->schema.cols[i].type) {
+			case INTEGER: {
+				sorbet_read_int(sdef, &sdef->row[i].intval);
+				break;
+			}
+			case LONG: {
+				sorbet_read_long(sdef, &sdef->row[i].longval);
+				break;
+			}
+			case FLOAT: {
+				sorbet_read_float(sdef, &sdef->row[i].floatval);
+				break;
+			}
+			case DOUBLE: {
+				sorbet_read_double(sdef, &sdef->row[i].doubleval);
+				break;
+			}
+			case BOOLEAN: {
+				sorbet_read_boolean(sdef, &sdef->row[i].boolval);
+				break;
+			}
+			case STRING: {
+				int len;
+				sorbet_read_string(sdef, sdef->row[i].strval, &len);
+				break;
+			}
+			case BINARY: {
+				int len;
+				sorbet_read_binary(sdef, sdef->row[i].binval, &len);
+				break;
+			}
+			case DATE: {
+				sorbet_read_date(sdef, &sdef->row[i].dateval);
+				break;
+			}
+			case DATETIME: {
+				sorbet_read_datetime(sdef, &sdef->row[i].datetimeval);
+				break;
+			}
+			case TIME: {
+				sorbet_read_time(sdef, &sdef->row[i].timeval);
+				break;
+			}
+		}
+	}
+	return sdef->row;
+}
+
 bool read_header(sorbet_def *sdef) {
 	// turn off compression while reading the header
 	sdef->compression = 0;
@@ -763,6 +827,7 @@ bool read_header(sorbet_def *sdef) {
 	fseek(sdef->f, sdef->read_cnt, 0);
 	sdef->buf_offset = BUF_SIZE;
 	sorbet_fill_read_buffer(sdef);
+	sdef->row_cnt = 0;
 	return true;
 }
 
@@ -773,6 +838,14 @@ void sorbet_reader_open(sorbet_def *sdef) {
 	sorbet_fill_read_buffer(sdef);
 	read_header(sdef);
 	sdef->cur_col = 0;
+	sdef->row = (col_val *)malloc(sizeof(col_val) * sdef->schema.numCols);
+	for (int i=0; i<sdef->schema.numCols; i++) {
+		if (sdef->schema.cols[i].type == STRING) {
+			sdef->row[i].strval = (char *)malloc(sdef->cstats[i].cwidth + 1);
+		} else if (sdef->schema.cols[i].type == BINARY) {
+			sdef->row[i].binval = (uint8_t *)malloc(sdef->cstats[i].cwidth);
+		}
+	}
 }
 
 void sorbet_reader_close(sorbet_def *sdef) {
@@ -785,4 +858,12 @@ void sorbet_reader_close(sorbet_def *sdef) {
 	if (sdef->metadata != NULL) {
 		free(sdef->metadata);
 	}
+	for (int i=0; i<sdef->schema.numCols; i++) {
+		if (sdef->schema.cols[i].type == STRING) {
+			free(sdef->row[i].strval);
+		} else if (sdef->schema.cols[i].type == BINARY) {
+			free(sdef->row[i].binval);
+		}
+	}
+	free(sdef->row);
 }

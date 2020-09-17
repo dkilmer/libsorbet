@@ -75,16 +75,29 @@ static uint8_t column_type_null_tag[] = {
 };
 
 typedef struct s_sorbet_date {
-	int32_t y;
-	int32_t m;
-	int32_t d;
+	uint8_t y;
+	uint8_t m;
+	uint8_t d;
 } sorbet_date;
 
 typedef struct s_sorbet_time {
-	int32_t h;
-	int32_t m;
-	int32_t s;
+	uint8_t h;
+	uint8_t m;
+	uint8_t s;
 } sorbet_time;
+
+typedef union u_col_val {
+	int32_t intval;
+	int64_t longval;
+	float32_t floatval;
+	float64_t doubleval;
+	bool boolval;
+	char *strval;
+	uint8_t *binval;
+	sorbet_date dateval;
+	int64_t datetimeval;
+	sorbet_time timeval;
+} col_val;
 
 // a struct that defines a single column in the file
 typedef struct s_data_column {
@@ -129,6 +142,8 @@ typedef struct s_sorbet_def {
 	uint8_t zbuf[BUF_SIZE];
 	int zflush;
 	long read_cnt;
+	long row_cnt;
+	col_val *row;
 } sorbet_def;
 
 int sorbet_version();
@@ -161,5 +176,6 @@ bool sorbet_read_binary(sorbet_def *sdef, uint8_t *v, int32_t *len);
 bool sorbet_read_date(sorbet_def *sdef, sorbet_date *v);
 bool sorbet_read_datetime(sorbet_def *sdef, int64_t *v);
 bool sorbet_read_time(sorbet_def *sdef, sorbet_time *v);
+col_val *sorbet_read_row(sorbet_def *sdef);
 void sorbet_reader_close(sorbet_def *sdef);
 #endif //LIBSORBET_LIBRARY_H
