@@ -324,7 +324,7 @@ int64_t col_width_from_stats(column_stats *stats, column_type col_type) {
 			break;
 		}
 		case DOUBLE: {
-			sprintf(strbuf, "%ld", (int64_t)stats->max_long);
+			sprintf(strbuf, "%ld", (int64_t)stats->max_double);
 			max = strlen(strbuf);
 			break;
 		}

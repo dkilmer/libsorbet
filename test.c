@@ -11,7 +11,7 @@ typedef struct TestRec {
 
 int main(int argc, const char **argv) {
 	sorbet_def sdef;
-	sdef.filename = "/home/dmk/data/xx/test-cats/peoples.sorbet";
+	sdef.filename = "/home/dmk/data/file.sorbet";
 /*
 	data_column cols[] = {
 			{"id",   INTEGER, NULL_COL_TYPE, NULL_COL_TYPE},
