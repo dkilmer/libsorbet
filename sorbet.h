@@ -86,14 +86,24 @@ typedef struct s_sorbet_time {
 	uint8_t s;
 } sorbet_time;
 
+typedef struct s_bin_val {
+	int32_t len;
+	uint8_t *val;
+} bin_val;
+
+typedef struct s_str_val {
+	int32_t len;
+	char *val;
+} str_val;
+
 typedef union u_col_val {
 	int32_t intval;
 	int64_t longval;
 	float32_t floatval;
 	float64_t doubleval;
 	bool boolval;
-	char *strval;
-	uint8_t *binval;
+	str_val strval;
+	bin_val binval;
 	sorbet_date dateval;
 	int64_t datetimeval;
 	sorbet_time timeval;

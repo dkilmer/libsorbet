@@ -64,7 +64,7 @@ int main(int argc, const char **argv) {
 					break;
 				}
 				case STRING: {
-					printf(" %s", row[c].strval);
+					printf(" %s", row[c].strval.val);
 					break;
 				}
 				default: {

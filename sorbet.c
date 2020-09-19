@@ -735,13 +735,12 @@ col_val *sorbet_read_row(sorbet_def *sdef) {
 				break;
 			}
 			case STRING: {
-				int len;
-				sorbet_read_string(sdef, sdef->row[i].strval, &len);
+				sorbet_read_string(sdef, sdef->row[i].strval.val, &sdef->row[i].strval.len);
 				break;
 			}
 			case BINARY: {
 				int len;
-				sorbet_read_binary(sdef, sdef->row[i].binval, &len);
+				sorbet_read_binary(sdef, sdef->row[i].binval.val, &sdef->row[i].binval.len);
 				break;
 			}
 			case DATE: {
@@ -841,9 +840,9 @@ void sorbet_reader_open(sorbet_def *sdef) {
 	sdef->row = (col_val *)malloc(sizeof(col_val) * sdef->schema.numCols);
 	for (int i=0; i<sdef->schema.numCols; i++) {
 		if (sdef->schema.cols[i].type == STRING) {
-			sdef->row[i].strval = (char *)malloc(sdef->cstats[i].cwidth + 1);
+			sdef->row[i].strval.val = (char *)malloc(sdef->cstats[i].cwidth + 1);
 		} else if (sdef->schema.cols[i].type == BINARY) {
-			sdef->row[i].binval = (uint8_t *)malloc(sdef->cstats[i].cwidth);
+			sdef->row[i].binval.val = (uint8_t *)malloc(sdef->cstats[i].cwidth);
 		}
 	}
 }
@@ -860,9 +859,9 @@ void sorbet_reader_close(sorbet_def *sdef) {
 	}
 	for (int i=0; i<sdef->schema.numCols; i++) {
 		if (sdef->schema.cols[i].type == STRING) {
-			free(sdef->row[i].strval);
+			free(sdef->row[i].strval.val);
 		} else if (sdef->schema.cols[i].type == BINARY) {
-			free(sdef->row[i].binval);
+			free(sdef->row[i].binval.val);
 		}
 	}
 	free(sdef->row);
