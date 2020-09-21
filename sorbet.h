@@ -91,10 +91,12 @@ typedef struct s_bin_val {
 	uint8_t *val;
 } bin_val;
 
+/*
 typedef struct s_str_val {
 	int32_t len;
 	char *val;
 } str_val;
+*/
 
 typedef union u_col_val {
 	int32_t intval;
@@ -102,7 +104,7 @@ typedef union u_col_val {
 	float32_t floatval;
 	float64_t doubleval;
 	bool boolval;
-	str_val strval;
+	bin_val strval;
 	bin_val binval;
 	sorbet_date dateval;
 	int64_t datetimeval;
@@ -166,14 +168,15 @@ void sorbet_write_long(sorbet_def *sdef, const int64_t *v);
 void sorbet_write_float(sorbet_def *sdef, const float32_t *v);
 void sorbet_write_double(sorbet_def *sdef, const float64_t *v);
 void sorbet_write_boolean(sorbet_def *sdef, const bool *v);
-void sorbet_write_string(sorbet_def *sdef, const uint8_t *v, int32_t  len);
-void sorbet_write_binary(sorbet_def *sdef, const uint8_t *v, int32_t  len);
+void sorbet_write_string(sorbet_def *sdef, const uint8_t *v, int32_t len);
+void sorbet_write_binary(sorbet_def *sdef, const uint8_t *v, int32_t len);
 void sorbet_write_date(sorbet_def *sdef, const sorbet_date *v);
 void sorbet_write_date_time_t(sorbet_def *sdef, const time_t *v);
 void sorbet_write_datetime(sorbet_def *sdef, const int64_t *dt);
 void sorbet_write_datetime_time_t(sorbet_def *sdef, const time_t *dt);
 void sorbet_write_time(sorbet_def *sdef, const sorbet_time *v);
 void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v);
+void sorbet_write_row(sorbet_def *sdef, col_val *row);
 
 void sorbet_reader_open(sorbet_def *sdef);
 bool sorbet_read_int(sorbet_def *sdef, int32_t *v);

@@ -304,8 +304,58 @@ void sorbet_write_time_time_t(sorbet_def *sdef, const time_t *v) {
 	writer_inc_col(sdef);
 }
 
+void sorbet_write_row(sorbet_def *sdef, col_val *row) {
+	for (int i=0; i<sdef->schema.numCols; i++) {
+		switch (sdef->schema.cols[i].type) {
+			case INTEGER: {
+				sorbet_write_int(sdef, &row[i].intval);
+				break;
+			}
+			case LONG: {
+				sorbet_write_long(sdef, &row[i].longval);
+				break;
+			}
+			case FLOAT: {
+				sorbet_write_float(sdef, &row[i].floatval);
+				break;
+			}
+			case DOUBLE: {
+				sorbet_write_double(sdef, &row[i].doubleval);
+				break;
+			}
+			case BOOLEAN: {
+				sorbet_write_boolean(sdef, &row[i].boolval);
+				break;
+			}
+			case STRING: {
+				sorbet_write_string(sdef, row[i].strval.val, row[i].strval.len);
+				break;
+			}
+			case BINARY: {
+				sorbet_write_binary(sdef, row[i].strval.val, row[i].strval.len);
+				break;
+			}
+			case DATE: {
+				sorbet_write_date(sdef, &row[i].dateval);
+				break;
+			}
+			case DATETIME: {
+				sorbet_write_datetime(sdef, &row[i].datetimeval);
+				break;
+			}
+			case TIME: {
+				sorbet_write_time(sdef, &row[i].timeval);
+				break;
+			}
+			case NULL_COL_TYPE: {
+				// TODO: throw an error
+			}
+		}
+	}
+}
+
 int64_t col_width_from_stats(column_stats *stats, column_type col_type) {
-	int64_t max = 0L;
+	int64_t max;
 	char strbuf[256];
 	switch (col_type) {
 		case INTEGER: {
